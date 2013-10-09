@@ -145,18 +145,8 @@ namespace Quartz.Listener
         private void ScheduleRetryableJob(IJobExecutionContext context, IRetryableJob retryableJob)
         {
             var oldTrigger = context.Trigger;
-
-            TriggerKey retryTriggerKey;
-            int numberTries = context.JobDetail.JobDataMap.GetIntValue(NumberTriesJobDataMapKey);
-
-            if (numberTries <= 1)
-                retryTriggerKey = new TriggerKey(string.Format("{0}-Retry", oldTrigger.Key.Name), oldTrigger.Key.Group);
-            else
-                retryTriggerKey = oldTrigger.Key;
-
-
-            // Unschedule old retry trigger. Make sure this trigger exists only once
-            _scheduler.UnscheduleJob(retryTriggerKey);
+            TriggerKey retryTriggerKey = new TriggerKey(oldTrigger.Key.Name, "RETRY");
+                      
 
             int waitInterval;
             IntervalUnit intervalUnit;
@@ -179,7 +169,10 @@ namespace Quartz.Listener
 
             // Create and schedule new trigger
             var retryTrigger = TriggerBuilder.Create().ForJob(context.JobDetail).WithIdentity(retryTriggerKey).WithSimpleSchedule(s => s.WithRepeatCount(0)).StartAt(DateBuilder.FutureDate(waitInterval, intervalUnit)).Build();
-            _scheduler.ScheduleJob(retryTrigger);
+            if (!_scheduler.CheckExists(retryTriggerKey))
+                _scheduler.ScheduleJob(retryTrigger);
+            else
+                _scheduler.RescheduleJob(retryTriggerKey, retryTrigger);
         }
 
         /// <summary>
