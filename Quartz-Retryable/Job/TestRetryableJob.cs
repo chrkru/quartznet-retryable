@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Common.Logging;
 
 namespace Quartz.Job
 {
@@ -15,11 +16,11 @@ namespace Quartz.Job
         /// </summary>
         const string NumberTriesJobDataMapKey = "RetryableJobListener.TryNumber";
 
-
+        private readonly ILog logger = LogManager.GetLogger(typeof(TestRetryableJob));
 
         public override int MaxNumberTries
         {
-            get { return 10; }
+            get { return 5; }
         }
 
         public override int Delay
@@ -34,14 +35,16 @@ namespace Quartz.Job
 
         public override void Execute(IJobExecutionContext context)
         {
+            TriggerKey key = context.Trigger.Key;
+
             int currentTry = context.JobDetail.JobDataMap.GetIntValue(NumberTriesJobDataMapKey);
-            if (currentTry <= 3)
+            if (currentTry == 3 || currentTry == 5 || currentTry == 10 || currentTry == 12)
             {
-                throw new RetryableJobExecutionException(string.Format("Current Try: {0}", currentTry));
+                throw new RetryableJobExecutionException(string.Format("{0} --> ERROR - Current Try: {1}. RESCHEDULE....", key, currentTry));
             }
             else
             {
-                return;
+                logger.DebugFormat("{0} --> OK - Current Try: {1}", key, currentTry);
             }
         }
 
